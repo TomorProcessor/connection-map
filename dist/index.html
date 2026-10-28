@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f7f2">
+  <meta name="description" content="A simple, personal map of people and the connections between them.">
+  <title>Circles — Your people, connected</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Circles home"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 12 29 10 25 30Z"/><circle cx="10" cy="12" r="6"/><circle cx="29" cy="10" r="5"/><circle cx="25" cy="30" r="7"/></svg><span>circles<span class="brand-dot">.</span></span></a>
+    <span class="top-caption">A little perspective on your people.</span>
+    <div class="top-actions"><span id="saveStatus" class="save-status" role="status">Saved in this browser</span><button id="importButton" class="button ghost">Import</button><button id="exportButton" class="button ghost">Export <span aria-hidden="true">↗</span></button><button id="helpButton" class="icon-button" aria-label="About this map">?</button></div>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar">
+      <div class="eyebrow">YOUR CONNECTION MAP</div>
+      <h1>Your people,<br><em>connected.</em></h1>
+      <p class="intro">See the connections.<br>Find the circles within them.</p>
+      <button id="addPerson" class="button primary wide"><span aria-hidden="true">＋</span> Add a person</button>
+      <button id="addConnection" class="button secondary wide"><span aria-hidden="true">↔</span> Connect two people</button>
+      <section class="filter-section" aria-labelledby="typesHeading">
+        <div class="section-heading"><h2 id="typesHeading">RELATION TYPES</h2><button id="allTypes" class="text-button">Show all</button></div>
+        <div id="typeFilters" class="type-filters"></div>
+        <button id="addType" class="text-button add-type">＋ Add a type</button>
+      </section>
+      <section class="backbone-section" aria-labelledby="backboneHeading">
+        <div class="section-heading"><h2 id="backboneHeading">UNTANGLE THE VIEW</h2><span class="mini-symbol" aria-hidden="true">✳</span></div>
+        <label class="toggle-row" for="backboneToggle"><span>Backbone view</span><span class="switch"><input type="checkbox" id="backboneToggle"><span class="switch-track"></span></span></label>
+        <p class="small-copy">Fewer lines. Clearer circles.<br>Your connections stay saved.</p>
+        <div id="backboneControls" class="backbone-controls" hidden><label for="keepRange">Connections to keep <output id="keepValue">40%</output></label><input id="keepRange" type="range" min="5" max="100" step="5" value="40"><p class="range-note">Bridges stay to keep your groups connected.</p></div>
+      </section>
+      <div class="sidebar-footer"><span class="privacy-dot"></span><p>Your map stays in this browser.<br>Export a copy to keep it safe.</p><button id="dataMenu" class="text-button">Map options <span aria-hidden="true">↗</span></button></div>
+    </aside>
+    <section class="map-area" aria-label="Interactive connection map">
+      <div class="map-toolbar"><div class="map-title">The bigger picture <span id="demoBadge" class="badge">EXAMPLE MAP</span></div><label class="search-box"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="8" r="5"/><path d="m12 12 5 5"/></svg><input id="search" type="search" placeholder="Find a person…" aria-label="Find a person" autocomplete="off"></label></div>
+      <div id="graphStage" class="graph-stage">
+        <svg id="graph" aria-label="People and their typed connections" role="group"><g id="viewport"><g id="edgeLayer"></g><g id="nodeLayer"></g></g></svg>
+        <div id="emptyState" class="empty-state" hidden><div class="empty-icon" aria-hidden="true">✳</div><h2>Every circle starts<br>with one person.</h2><p>Add someone, then connect the dots.</p><button id="emptyAdd" class="button primary">Add your first person</button></div>
+        <section id="personCard" class="person-card" hidden aria-label="Selected person"></section>
+        <div id="searchStatus" class="search-status" role="status" hidden></div>
+        <div class="map-controls"><button id="zoomIn" class="icon-button" aria-label="Zoom in">＋</button><button id="zoomOut" class="icon-button" aria-label="Zoom out">−</button><span></span><button id="fitMap" class="icon-button" aria-label="Fit map to view">⌖</button></div>
+        <div class="map-hint">Drag people to move them · Scroll to zoom</div>
+        <div class="view-label"><span></span><span id="viewLabel">All connections</span></div>
+      </div>
+      <footer class="map-footer"><div class="map-stats"><span><strong id="peopleCount">0</strong> people</span><span><strong id="connectionCount">0</strong> connections</span><span id="shownCount"></span></div><button id="startBlank" class="text-button">Make this map yours <span aria-hidden="true">↗</span></button></footer>
+    </section>
+  </main>
+  <input id="importFile" type="file" accept=".json,application/json" hidden>
+  <dialog id="dialog"><div id="dialogContent"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden><span id="toastText"></span><button id="undoButton">Undo</button></div>
+</body>
+</html>
