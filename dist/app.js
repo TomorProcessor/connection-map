@@ -1,4 +1,5 @@
 import { DEFAULT_TYPES, LIMITS, pairKey, emptyGraph, normalizeGraph, demoGraph, filteredConnections, embeddedness, extractBackbone } from './graph.js';
+import { preparePhoto } from './photos.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -39,6 +40,14 @@ function hash(text) { let n = 0; for (const c of text) n = ((n << 5) - n + c.cha
 function makeSvg(tag, attrs = {}) { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); return e; }
 function initials(name) { return name.split(/\s+/).slice(0,2).map(s => [...s][0]).join('').toLocaleUpperCase(); }
 function typeById(id) { return graph.types.find(t => t.id === id); }
+function fillAvatar(element, name, photo) {
+  element.replaceChildren();
+  const fallback = document.createElement('span'); fallback.textContent = initials(name || '?'); element.append(fallback);
+  if (!photo) return;
+  const image = new Image(); image.alt = ''; image.onload = () => fallback.hidden = true;
+  image.onerror = () => { image.remove(); fallback.hidden = false; };
+  image.src = photo; element.append(image);
+}
 
 function render(recompute = false) {
   const typeCounts = new Map(graph.types.map(t => [t.id,0]));
@@ -88,12 +97,21 @@ function rebuildGraph(recompute = false) {
     });
   }
   const colors = ['#d8dfc2','#d2ded3','#e8d8cf','#d6ddec','#dfd5e5','#e9dfbc'];
-  for (const person of graph.people) {
+  for (const [index, person] of graph.people.entries()) {
     const group = makeSvg('g', { class:'graph-node', 'data-id':person.id, tabindex:'0', role:'button', 'aria-label':`View ${person.name}` });
     const title = makeSvg('title'); title.textContent = person.name; group.append(title);
     group.append(makeSvg('circle',{r:27,class:'node-ring'}));
     group.append(makeSvg('circle',{r:22,class:'node-face',fill:colors[hash(person.id)%colors.length]}));
     const initial = makeSvg('text',{class:'initial','text-anchor':'middle',dy:4}); initial.textContent=initials(person.name); group.append(initial);
+    if (person.photo) {
+      const clipId = `person-photo-${index}`;
+      const defs = makeSvg('defs'), clip = makeSvg('clipPath', {id:clipId});
+      clip.append(makeSvg('circle', {r:20})); defs.append(clip); group.append(defs);
+      const photo = makeSvg('image', {href:person.photo,x:-20,y:-20,width:40,height:40,preserveAspectRatio:'xMidYMid slice','clip-path':`url(#${clipId})`,class:'node-photo'});
+      photo.onload = () => initial.setAttribute('visibility','hidden');
+      photo.onerror = () => { photo.remove(); initial.removeAttribute('visibility'); };
+      group.append(photo);
+    }
     const name = makeSvg('text',{class:'node-name','text-anchor':'middle',dy:39}); name.textContent=person.name.length>22 ? person.name.slice(0,20)+'…' : person.name; group.append(name);
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectPerson(person.id);}});
     $('nodeLayer').append(group); nodeEls.set(person.id,group);
@@ -174,6 +192,8 @@ function renderCard(){
   const p=graph.people.find(p=>p.id===selected);$('personCard').hidden=!p;if(!p)return;
   const edges=graph.connections.filter(e=>e.source===p.id||e.target===p.id);
   $('personCard').innerHTML=`<button class="close-card" aria-label="Close person details">×</button><div class="eyebrow">A PERSON IN YOUR MAP</div><h2>${esc(p.name)}</h2><div class="card-caption">${edges.length} ${edges.length===1?'connection':'connections'}</div><div class="card-actions"><button class="button primary" data-action="connect">＋ Connect</button><button class="button secondary" data-action="edit">Edit person</button></div><div class="card-connections">${edges.length?'': '<p class="small-copy">A new connection is a good place to start.</p>'}${edges.map(e=>{const other=graph.people.find(n=>n.id===(e.source===p.id?e.target:e.source));return `<button class="connection-row" data-other="${esc(other.id)}" title="Edit connection with ${esc(other.name)}"><span>${esc(other.name)}</span><span class="relation-dots" aria-label="${esc(e.types.map(id=>typeById(id).name).join(', '))}">${e.types.map(id=>`<span class="type-dot" style="--type-color:${typeById(id).color}"></span>`).join('')}</span></button>`;}).join('')}</div>`;
+  const avatar=document.createElement('div');avatar.className='avatar card-avatar';avatar.setAttribute('aria-hidden','true');
+  $('personCard').querySelector('h2').before(avatar);fillAvatar(avatar,p.name,p.photo);
   $('personCard').querySelector('.close-card').onclick=()=>selectPerson(null);
   $('personCard').querySelector('[data-action=edit]').onclick=()=>personDialog(p.id);
   $('personCard').querySelector('[data-action=connect]').onclick=()=>connectionDialog(p.id);
@@ -187,9 +207,25 @@ function showError(message){const element=$('formError');if(element){element.tex
 const errorField='<p id="formError" class="form-error" role="alert" hidden></p>';
 function personDialog(id){
   const person=graph.people.find(p=>p.id===id);
-  openDialog(person?'Edit person':'Someone new',`<p class="dialog-copy">Just a name. The connections come next.</p><form id="personForm"><label class="field-label" for="personName">Name</label><input class="form-control" id="personName" name="name" maxlength="80" placeholder="e.g. Anna Kovács" autocomplete="off" required value="${esc(person?.name||'')}" autofocus>${errorField}<div class="dialog-actions">${person?'<button type="button" class="button danger" id="removePerson">Remove</button>':''}<button type="button" class="button secondary" id="cancelForm">Cancel</button><button class="button primary" type="submit">${person?'Save changes':'Add person'}</button></div></form>`,()=>{
+  let photo=person?.photo,generation=0;
+  openDialog(person?'Edit person':'Someone new',`<p class="dialog-copy">A name, and a picture if you like.</p><form id="personForm"><label class="field-label" for="personName">Name</label><input class="form-control" id="personName" name="name" maxlength="80" placeholder="e.g. Anna Kovács" autocomplete="off" required value="${esc(person?.name||'')}" autofocus><span class="field-label">Profile picture <span class="optional-label">optional</span></span><div class="photo-editor"><div class="avatar photo-preview" id="photoPreview" role="img" aria-label="Profile picture preview"></div><div class="photo-actions"><input type="file" id="personPhoto" accept="image/jpeg,image/png,image/webp" hidden><div class="photo-buttons"><button type="button" class="button secondary" id="choosePhoto">${photo?'Change picture':'Choose picture'}</button><button type="button" class="text-button" id="removePhoto" ${photo?'':'hidden'}>Remove picture</button></div><p class="photo-note" id="photoStatus" aria-live="polite">JPEG, PNG or WebP · up to 10 MB<br>Cropped to a square and saved on this device.</p></div></div>${errorField}<div class="dialog-actions">${person?'<button type="button" class="button danger" id="removePerson">Remove</button>':''}<button type="button" class="button secondary" id="cancelForm">Cancel</button><button class="button primary" id="savePerson" type="submit">${person?'Save changes':'Add person'}</button></div></form>`,()=>{
+    const form=$('personForm'),name=$('personName'),preview=$('photoPreview'),input=$('personPhoto'),choose=$('choosePhoto'),remove=$('removePhoto'),submit=$('savePerson'),status=$('photoStatus'),error=$('formError');
+    const refreshPhoto=()=>{fillAvatar(preview,name.value.trim()||'?',photo);choose.textContent=photo?'Change picture':'Choose picture';remove.hidden=!photo;};
+    refreshPhoto();name.addEventListener('input',refreshPhoto);
+    choose.onclick=()=>input.click();
+    remove.onclick=()=>{generation++;photo=undefined;submit.disabled=false;status.textContent='Picture removed. Save your changes to keep the initials.';refreshPhoto();};
+    input.onchange=async()=>{
+      const file=input.files[0];input.value='';if(!file)return;
+      const current=++generation;submit.disabled=true;status.textContent='Preparing picture…';error.hidden=true;
+      try {
+        const prepared=await preparePhoto(file);
+        if(current!==generation||!form.isConnected)return;
+        photo=prepared;refreshPhoto();status.textContent='Picture ready. It stays on this device and in your JSON backups.';
+      } catch(e) {if(current===generation&&form.isConnected){error.textContent=e.message;error.hidden=false;status.textContent='Choose another picture, or keep the current one.';}}
+      finally {if(current===generation&&form.isConnected)submit.disabled=false;}
+    };
     $('cancelForm').onclick=()=>dialog.close();
-    $('personForm').onsubmit=e=>{e.preventDefault();const name=$('personName').value.trim();if(!name)return showError('Enter a name.');const newId=id||crypto.randomUUID();if(commit(g=>{if(person)g.people.find(p=>p.id===id).name=name;else g.people.push({id:newId,name});},person?'Person updated.':'Person added.')){dialog.close();selectPerson(newId);if(!person)needsFit=true;}};
+    form.onsubmit=e=>{e.preventDefault();if(submit.disabled)return;const personName=name.value.trim();if(!personName)return showError('Enter a name.');const newId=id||crypto.randomUUID();if(commit(g=>{let target;if(person){target=g.people.find(p=>p.id===id);target.name=personName;}else{target={id:newId,name:personName};g.people.push(target);}if(photo)target.photo=photo;else delete target.photo;},person?'Person updated.':'Person added.')){dialog.close();selectPerson(newId);if(!person)needsFit=true;}};
     if(person)$('removePerson').onclick=()=>confirmDialog('Remove this person?',`This removes ${person.name} and their ${graph.connections.filter(e=>e.source===id||e.target===id).length} connections. You can undo this.`,()=>{commit(g=>{g.people=g.people.filter(p=>p.id!==id);g.connections=g.connections.filter(e=>e.source!==id&&e.target!==id);},'Person removed.');},'Remove person');
   });
 }
@@ -217,7 +253,7 @@ function replaceGraph(next,message){previous=structuredClone(graph);graph=next;e
 function startBlank(){confirmDialog('Start your own circle?',graph.demo?'This replaces the example with an empty map. Your first person can be anyone.':'This clears the current map. Export a backup first if you want to keep a copy. You can undo this.',()=>replaceGraph(emptyGraph(),'A fresh map. Start with one person.'),'Start a blank map');}
 function exportMap(){const data=JSON.stringify(graph,null,2),url=URL.createObjectURL(new Blob([data],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=`circles-${new Date().toISOString().slice(0,10)}.json`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Map exported. Keep this file as your backup.');}
 $('importButton').onclick=()=>$('importFile').click();
-$('importFile').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>20*1024*1024)return notify('Choose a JSON file smaller than 20 MB.');try{const next=normalizeGraph(JSON.parse(await file.text()));confirmDialog('Import this map?',`${next.people.length} people and ${next.connections.length} connections. This replaces the current map; you can undo the import.`,()=>replaceGraph(next,'Map imported.'),'Import map');}catch(error){notify(error instanceof SyntaxError?'This file is not valid JSON. Your current map is unchanged.':error.message);}};
+$('importFile').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>40*1024*1024)return notify('Choose a JSON file smaller than 40 MB.');try{const next=normalizeGraph(JSON.parse(await file.text()));confirmDialog('Import this map?',`${next.people.length} people and ${next.connections.length} connections. This replaces the current map; you can undo the import.`,()=>replaceGraph(next,'Map imported.'),'Import map');}catch(error){notify(error instanceof SyntaxError?'This file is not valid JSON. Your current map is unchanged.':error.message);}};
 $('exportButton').onclick=exportMap;
 $('dataMenu').onclick=()=>openDialog('Your map',`<p class="dialog-copy">Your people and connections are saved in this browser. A JSON export lets you back up your map or move it to another device.</p><div class="options-list"><button id="optionExport" class="button secondary">↗ Export a backup</button><button id="optionBlank" class="button secondary">＋ Start a blank map</button><button id="optionDemo" class="button secondary">✳ Load the example map</button></div>`,()=>{$('optionExport').onclick=exportMap;$('optionBlank').onclick=startBlank;$('optionDemo').onclick=()=>confirmDialog('Load the example?', 'This replaces the current map with fictional people. You can undo the change.',()=>replaceGraph(demoGraph(),'Example map loaded.'),'Load example');});
 $('helpButton').onclick=()=>openDialog('A little perspective.',`<p class="dialog-copy">A person is a dot. A connection is a line. Its color tells you what connects two people.</p><p class="dialog-copy">Add your people, connect them, then choose which relation types to explore. Click a person to edit them or their connections. You can drag people around, pan the canvas, and zoom.</p><p class="dialog-copy"><strong>Backbone view</strong> selects fewer connections to help groups stand out. It keeps enough bridges to preserve connected groups, so the actual number retained may be above the slider target. Every person and connection stays saved.</p><div class="help-note">Your map stays on this device. There is no Facebook login, crawler, tracking, or data upload. Export a JSON file for a backup. Circles JSON and old Lost Circles JSON exports can be imported.</div><div class="dialog-actions"><button id="helpDone" class="button primary">Got it</button></div>`,()=>{$('helpDone').onclick=()=>dialog.close();});

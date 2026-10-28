@@ -94,6 +94,7 @@ the app uses JavaScript modules.
 ## Features
 
 - Add, rename, and remove people.
+- Add, replace, or remove an optional profile picture; initials appear otherwise.
 - Add and edit undirected connections with one or more relation types.
 - Built-in Real life, Facebook, Instagram, and LinkedIn types; add custom types.
 - Filter by type; search for a person; select, drag, pan, zoom, and fit the map.
@@ -110,8 +111,25 @@ maps. If browser storage fails, the app warns and leaves the current map in memo
 
 The first version supports 500 people, 5,000 connections, and 24 relation types.
 JSON imports are validated before replacing the current map. Parallel entries for
-the same pair merge their relation types; self-connections are discarded. Data has
-names and types only; imported photos and platform account IDs are not retained.
+the same pair merge their relation types; self-connections are discarded. People
+have a name and an optional picture. Platform account IDs are not retained.
+
+### Profile pictures
+
+Choose a JPEG, PNG, or WebP file (up to 10 MB) when adding or editing a person. The
+browser crops the center to a square, resizes it to 192 × 192, and compresses it as
+a JPEG. It appears in the graph and person details. Remove the picture to return
+to initials. Canceling the editor discards picture changes.
+
+Pictures stay on the device and are embedded in Circles JSON backups, so they
+survive export/import and work offline. Older maps without pictures still load.
+Imports accept embedded JPEG, PNG, and WebP data URLs up to 64 KB of encoded text
+per person; external image URLs and SVG are rejected. JSON files can be up to
+40 MB. The legacy Lost Circles importer still imports names and connections only.
+
+Browser storage has a quota. If a map with many pictures exceeds it, Circles shows
+a save warning and keeps the current map in memory. Export a backup before closing
+the page; reducing or removing pictures can free space.
 
 ## Backbone
 
@@ -146,6 +164,10 @@ or vendor libraries have been copied.
 }
 ```
 
+A person can also have an optional `photo` string containing an embedded raster
+image, for example `data:image/jpeg;base64,...` (with actual image bytes in place of
+the ellipsis). It is included automatically when a picture is chosen in the editor.
+
 ## Validation
 
 ```sh
@@ -161,6 +183,7 @@ essential bridges, filters, legacy import, duplicate merging, and invalid data.
 - `dist/index.html`, `dist/style.css`: interface and responsive layout.
 - `dist/app.js`: graph editor, local persistence, import/export, and SVG rendering.
 - `dist/graph.js`: model validation, demo data, filters, and backbone computation.
+- `dist/photos.js`: picture validation, center cropping, and browser compression.
 
 ## GitHub workflow
 

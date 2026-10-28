@@ -1,3 +1,5 @@
+import { normalizePhoto } from './photos.js';
+
 // The model is deliberately small: people, relation types, and typed connections.
 export const DEFAULT_TYPES = [
   { id: 'real-life', name: 'Real life', color: '#3f806b' },
@@ -39,7 +41,10 @@ export function normalizeGraph(input) {
     const id = nonempty(p?.id, 'Person ID');
     if (personIds.has(id)) throw new Error('Person IDs must be unique.');
     personIds.add(id);
-    return { id, name: nonempty(p.name, 'Name', 80) };
+    const person = { id, name: nonempty(p.name, 'Name', 80) };
+    const photo = normalizePhoto(p.photo);
+    if (photo) person.photo = photo;
+    return person;
   });
   const types = input.types.map(t => {
     const id = nonempty(t?.id, 'Relation type ID');
