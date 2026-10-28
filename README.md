@@ -3,6 +3,73 @@
 A small, local-first personal connection map. The model has people, relation types,
 and connections. Each pair of people can have several relation types.
 
+## How the idea took shape
+
+Circles began by rediscovering **Lost Circles**, a Chrome extension developed by
+members of the Algorithmics group at the University of Konstanz. It visualized a
+Facebook friendship network, helping reveal the groups hidden inside a dense
+tangle of connections. The university's
+[2016 research article](https://www.visual-computing.org/2016/04/18/untangling-networks/)
+connects the extension to Arlind Nocaj's doctoral research on making networks
+readable.
+
+We explored the original website's archives, the related publication, and a
+downloaded copy of version 2.3.1. Inspecting the extension showed how it assembled
+the graph and displayed it. Its **Backbone** button sent the graph to a Lost
+Circles server for processing; that server implementation was absent from the
+extension package. The published research gave us a basis for building our own
+local filtering method. The distinction between that method and the original
+research algorithm is explained in [Backbone](#backbone).
+
+The idea then grew beyond Facebook. The same map could include Instagram,
+LinkedIn, or people who know each other in real life. Data could be entered by
+hand or imported. We considered extra account details and relationship metadata,
+then settled on a deliberately small model:
+
+- **People** are nodes.
+- **Connections** link two people.
+- **Relation types** describe what connects them: Facebook, Instagram, LinkedIn,
+  real life, or a custom type.
+
+Two people can share several relation types. Colors and filters let us explore
+those connections together or separately, and a backbone view helps untangle the
+result. This became Circles: a personal map whose usefulness does not depend on
+where the data came from.
+
+## Sources and credits
+
+- **Lost Circles** provided the original inspiration. Its
+  [archived May 2018 homepage](https://web.archive.org/web/20180520082911/https://lostcircles.com/)
+  credits **Arlind Nocaj, Jan Hildenbrand, Felix Schönenberger, and Alban Nocaj**,
+  members of the University of Konstanz Algorithmics group.
+- **The extension archive**, [Lost Circles — Social Network, version 2.3.1](https://chrome-stats.com/d/ehpmfdlcppenimpibdifodjgfafkjhjl/download),
+  was used to study its collection workflow, JSON export format, viewer, and
+  client/server boundary. Circles supports importing its index-based JSON graphs.
+- **The publication:** Arlind Nocaj, Mark Ortmann, and Ulrik Brandes (2015).
+  [*Untangling the Hairballs of Multi-Centered, Small-World Online Social Media Networks*](https://doi.org/10.7155/jgaa.00370).
+  *Journal of Graph Algorithms and Applications*, **19**(2), 595–618.
+  DOI: `10.7155/jgaa.00370`. Its work on quadrilateral edge embeddedness and
+  connected backbones informed our local backbone implementation.
+- **Research background:**
+  [*Untangling Networks — or How to Focus on Less to See More*](https://www.visual-computing.org/2016/04/18/untangling-networks/)
+  introduces Nocaj's dissertation, *Untangling Networks: Focus on Less to See More*,
+  and explains the connection to Lost Circles.
+
+Circles is an independent implementation inspired by that work.
+
+## What we used to build it
+
+The current implementation uses **plain JavaScript modules, HTML, and CSS**, with
+**native SVG** for the interactive graph. The layout and backbone calculations run
+in the browser. Browser `localStorage` saves the map, and JSON files provide
+import, export, and backups. Node.js's built-in test runner checks the graph
+logic; Python's standard-library HTTP server serves the app on localhost.
+
+The old extension's viewer used D3 and WebCola. Studying its source helped us
+understand the original workflow; Circles uses its own SVG renderer and layout.
+There are no third-party runtime dependencies, and Circles does not call the old
+Lost Circles service.
+
 ## Get the project and run locally
 
 The project is maintained in the public GitHub repository
