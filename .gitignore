@@ -3,3 +3,22 @@ node_modules/
 *.tar.gz
 .sites-runtime/
 .openai/
+wt/.work/
+.env
+
+# Conversation transcripts (YYYY-MM-DD-topic.txt) — public repo, never commit
+/20??-??-??-*.txt
+
+# wt-memory exports / backups
+*-memory-*.json
+memory-backup-*.json
+
+# wt-tools per-directory local state (codemaps, memory markers)
+.wt-tools/
+
+# Claude Code local-only settings
+.claude/settings.local.json
+
+# Personal agent instructions (Claude Code, Codex) — kept local
+CLAUDE.md
+AGENTS.md
