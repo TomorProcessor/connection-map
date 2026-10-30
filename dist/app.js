@@ -192,7 +192,7 @@ function renderCard(){
   const p=graph.people.find(p=>p.id===selected);$('personCard').hidden=!p;if(!p)return;
   const edges=graph.connections.filter(e=>e.source===p.id||e.target===p.id);
   $('personCard').innerHTML=`<button class="close-card" aria-label="Close person details">×</button><div class="eyebrow">A PERSON IN YOUR MAP</div><h2>${esc(p.name)}</h2><div class="card-caption">${edges.length} ${edges.length===1?'connection':'connections'}</div><div class="card-actions"><button class="button primary" data-action="connect">＋ Connect</button><button class="button secondary" data-action="edit">Edit person</button></div><div class="card-connections">${edges.length?'': '<p class="small-copy">A new connection is a good place to start.</p>'}${edges.map(e=>{const other=graph.people.find(n=>n.id===(e.source===p.id?e.target:e.source));return `<button class="connection-row" data-other="${esc(other.id)}" title="Edit connection with ${esc(other.name)}"><span>${esc(other.name)}</span><span class="relation-dots" aria-label="${esc(e.types.map(id=>typeById(id).name).join(', '))}">${e.types.map(id=>`<span class="type-dot" style="--type-color:${typeById(id).color}"></span>`).join('')}</span></button>`;}).join('')}</div>`;
-  const avatar=document.createElement('div');avatar.className='avatar card-avatar';avatar.setAttribute('aria-hidden','true');
+  const avatar=document.createElement('div');avatar.className=p.photo?'avatar card-avatar card-photo':'avatar card-avatar';avatar.setAttribute('aria-hidden','true');
   $('personCard').querySelector('h2').before(avatar);fillAvatar(avatar,p.name,p.photo);
   $('personCard').querySelector('.close-card').onclick=()=>selectPerson(null);
   $('personCard').querySelector('[data-action=edit]').onclick=()=>personDialog(p.id);

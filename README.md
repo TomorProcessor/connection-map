@@ -117,9 +117,11 @@ have a name and an optional picture. Platform account IDs are not retained.
 ### Profile pictures
 
 Choose a JPEG, PNG, or WebP file (up to 10 MB) when adding or editing a person. The
-browser crops the center to a square, resizes it to 192 × 192, and compresses it as
-a JPEG. It appears in the graph and person details. Remove the picture to return
-to initials. Canceling the editor discards picture changes.
+browser crops the center to a square, resizes it to 320 × 320, and compresses it as
+a JPEG. It appears in the graph, and at full card width in the details of the
+selected person. Remove the picture to return to initials. Canceling the editor
+discards picture changes. Pictures added before the 320 × 320 size stay at
+192 × 192 until they are chosen again.
 
 Pictures stay on the device and are embedded in Circles JSON backups, so they
 survive export/import and work offline. Older maps without pictures still load.

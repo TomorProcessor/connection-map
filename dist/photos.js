@@ -1,7 +1,9 @@
 // Embedded raster images keep profile pictures portable and offline.
 export const PHOTO_MAX_CHARS = 64 * 1024;
-export const PHOTO_SIZE = 192;
+export const PHOTO_SIZE = 320;
 export const PHOTO_UPLOAD_BYTES = 10 * 1024 * 1024;
+// Most 320 px photos fit at the top quality; detailed ones step down and still stay well under PHOTO_MAX_CHARS.
+const PHOTO_TARGET_CHARS = 40 * 1024;
 
 export function normalizePhoto(value) {
   if (value === undefined || value === null || value === '') return undefined;
@@ -49,7 +51,7 @@ export async function preparePhoto(file) {
     let data;
     for (const quality of [.82, .68, .54, .4]) {
       data = canvas.toDataURL('image/jpeg', quality);
-      if (data.length <= 20 * 1024) break;
+      if (data.length <= PHOTO_TARGET_CHARS) break;
     }
     return normalizePhoto(data);
   } finally {
