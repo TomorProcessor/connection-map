@@ -65,6 +65,98 @@ export function normalizeGraph(input) {
   }
   return { version: 1, demo: input.demo === true, people, types, connections: [...pairs.values()] };
 }
+
+const nameKey = name => name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ');
+function groupByName(people) {
+  const groups = new Map();
+  for (const person of people) {
+    const key = nameKey(person.name);
+    groups.set(key, [...(groups.get(key) || []), person]);
+  }
+  return groups;
+}
+function quoteNames(names) {
+  const shown = names.slice(0, 3).map(name => `“${name}”`).join(', ');
+  return names.length > 3 ? `${shown} and ${names.length - 3} more` : shown;
+}
+
+function mergePeople(people, incoming, newId) {
+  const byId = new Map(people.map(p => [p.id, p])), ids = new Map(), claimed = new Set();
+  // A Circles ID only counts when the name agrees: hand-written files reuse short IDs like "anna" for different people.
+  for (const person of incoming) {
+    const known = byId.get(person.id);
+    if (known && nameKey(known.name) === nameKey(person.name)) { ids.set(person.id, known.id); claimed.add(known.id); }
+  }
+  const namesakes = groupByName(people.filter(p => !claimed.has(p.id)));
+  const ambiguous = [];
+  for (const [key, group] of groupByName(incoming.filter(p => !ids.has(p.id)))) {
+    const candidates = namesakes.get(key) || [];
+    if (candidates.length === 1 && group.length === 1) ids.set(group[0].id, candidates[0].id);
+    else if (candidates.length) ambiguous.push(group[0].name);
+  }
+  if (ambiguous.length) {
+    throw new Error(`${ambiguous.length === 1 ? 'This name matches' : 'These names match'} more than one person: ${quoteNames(ambiguous)}. Make the names unique on your map or in the file (a middle initial works), then try again.`);
+  }
+  const taken = new Set(byId.keys());
+  let added = 0;
+  for (const person of incoming) {
+    const known = byId.get(ids.get(person.id));
+    if (known) {
+      if (!known.photo && person.photo) known.photo = person.photo;
+      continue;
+    }
+    const id = taken.has(person.id) ? newId() : person.id;
+    taken.add(id);
+    ids.set(person.id, id);
+    people.push({ ...person, id });
+    added++;
+  }
+  return { ids, added, matched: incoming.length - added };
+}
+
+function mergeTypes(types, incoming) {
+  const ids = new Map();
+  let added = 0;
+  for (const type of incoming) {
+    const known = types.find(t => t.id === type.id) || types.find(t => nameKey(t.name) === nameKey(type.name));
+    if (known) { ids.set(type.id, known.id); continue; }
+    types.push({ ...type });
+    ids.set(type.id, type.id);
+    added++;
+  }
+  return { ids, added };
+}
+
+// Adds a normalized graph to the current one without removing or renaming anything already there.
+export function mergeGraphs(current, incoming, newId = () => crypto.randomUUID()) {
+  const merged = structuredClone(current);
+  const people = mergePeople(merged.people, incoming.people, newId);
+  const types = mergeTypes(merged.types, incoming.types);
+  const pairs = new Map(merged.connections.map(e => [pairKey(e.source, e.target), e]));
+  let addedConnections = 0, extendedConnections = 0;
+  for (const e of incoming.connections) {
+    const source = people.ids.get(e.source), target = people.ids.get(e.target), key = pairKey(source, target);
+    const relationTypes = e.types.map(id => types.ids.get(id)), prior = pairs.get(key);
+    if (!prior) {
+      pairs.set(key, { source, target, types: [...new Set(relationTypes)] });
+      addedConnections++;
+      continue;
+    }
+    const before = prior.types.length;
+    prior.types = [...new Set([...prior.types, ...relationTypes])];
+    if (prior.types.length > before) extendedConnections++;
+  }
+  merged.connections = [...pairs.values()];
+  for (const [key, label] of [['people', 'people'], ['connections', 'connections'], ['types', 'relation types']]) {
+    if (merged[key].length > LIMITS[key]) {
+      throw new Error(`Adding this file would give your map ${merged[key].length.toLocaleString('en-US')} ${label}. Circles supports up to ${LIMITS[key].toLocaleString('en-US')}.`);
+    }
+  }
+  return {
+    graph: normalizeGraph(merged),
+    summary: { addedPeople: people.added, matchedPeople: people.matched, addedConnections, extendedConnections, addedTypes: types.added }
+  };
+}
 export function filteredConnections(graph, enabled) {
   return graph.connections.flatMap(e => {
     const types = e.types.filter(t => enabled.has(t));

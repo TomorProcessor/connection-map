@@ -100,6 +100,8 @@ the app uses JavaScript modules.
 - Filter by type; search for a person; select, drag, pan, zoom, and fit the map.
 - Local backbone extraction with a retention slider.
 - Automatic browser storage, JSON export/import, and undo for the last data change.
+- Add a JSON file to the current map instead of replacing it, to build a map from
+  several sources step by step.
 - Import legacy Lost Circles JSON (`nodes` and index-based `links`).
 - A clearly marked fictional example, plus a blank-map action.
 
@@ -110,7 +112,7 @@ Export/import to transfer a map. Clearing browser data removes saved
 maps. If browser storage fails, the app warns and leaves the current map in memory.
 
 The first version supports 500 people, 5,000 connections, and 24 relation types.
-JSON imports are validated before replacing the current map. Parallel entries for
+JSON imports are validated before they replace or are added to the current map. Parallel entries for
 the same pair merge their relation types; self-connections are discarded. People
 have a name and an optional picture. Platform account IDs are not retained.
 
@@ -169,6 +171,28 @@ or vendor libraries have been copied.
 A person can also have an optional `photo` string containing an embedded raster
 image, for example `data:image/jpeg;base64,...` (with actual image bytes in place of
 the ellipsis). It is included automatically when a picture is chosen in the editor.
+
+### Adding a file to your map
+
+Importing offers **Add to my map** next to **Replace map**. Replace makes the file
+your whole map, which is right for restoring a backup. Adding never removes or
+renames anything:
+
+- A person in the file is someone already on the map when they have the same ID
+  and the same name, or else when exactly one person on the map has the same name.
+  Names match regardless of case, accents, and repeated spaces; name order counts,
+  so "Anna Kovács" and "Kovács Anna" are different people.
+- Everyone else is added. IDs in a hand-written file only link its own connections,
+  so short IDs such as `anna` are fine.
+- If a name could mean more than one person, nothing is added and the dialog names
+  it. Make the names unique on the map or in the file, then import again.
+- Relation types match by ID, then by name; new ones are added with their color.
+- Connections gain the file's relation types. A missing picture is filled in from
+  the file, while an existing one is kept.
+- Adding the same file twice changes nothing the second time.
+
+On the example map, adding starts from a blank map: the example people are left
+out, and the built-in relation types stay.
 
 ## Validation
 
