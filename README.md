@@ -119,6 +119,14 @@ or JSON exports. Your zoom stays fixed while the layout expands; use zoom out or
 **Fit map to view** when you want to see the whole map. The spacing preference is
 saved in this browser separately from your graph.
 
+Backbone view uses the original force balance so its groups can separate naturally.
+In that view, spacing scales the layout without changing that balance. Switching
+backbone view or its retention setting starts a fresh layout and fits it to the
+canvas, clearing temporary drag pins. Collision handling applies to the full
+connection view; a tight backbone group can still contain overlapping faces.
+Backbone layouts get additional settling steps, batched between screen updates,
+to let branches and groups separate before the animation stops.
+
 The first version supports 500 people, 5,000 connections, and 24 relation types.
 JSON imports are validated before they replace or are added to the current map. Parallel entries for
 the same pair merge their relation types; self-connections are discarded. People

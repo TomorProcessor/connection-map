@@ -1,6 +1,6 @@
 import { DEFAULT_TYPES, LIMITS, pairKey, emptyGraph, normalizeGraph, mergeGraphs, demoGraph, filteredConnections, embeddedness, extractBackbone } from './graph.js';
 import { preparePhoto } from './photos.js';
-import { DEFAULT_SPACING, normalizeSpacing, stepLayout } from './layout.js';
+import { DEFAULT_SPACING, layoutIterations, normalizeSpacing, scaleLayout, stepLayout } from './layout.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -137,13 +137,13 @@ function updatePositions() {
 }
 function tick() {
   const heat=Math.max(.12, Math.min(1,ticksLeft/100));
-  stepLayout(layoutNodes, layoutLinks, { centerX: width/2, centerY: height/2, heat, spacing });
-  updatePositions();
+  stepLayout(layoutNodes, layoutLinks, { centerX: width/2, centerY: height/2, heat, spacing, backbone: $('backboneToggle').checked });
 }
-function restart() { ticksLeft=180;if(!animation) animation=requestAnimationFrame(animate); }
+function restart() { ticksLeft=layoutIterations($('backboneToggle').checked);if(!animation) animation=requestAnimationFrame(animate); }
 function animate() {
-  if(reducedMotion){for(let i=0;i<120;i++){tick();ticksLeft--;}ticksLeft=0;}
-  else {tick();ticksLeft--;}
+  const steps=reducedMotion?ticksLeft:$('backboneToggle').checked?20:1;
+  for(let i=0;i<steps&&ticksLeft>0;i++){tick();ticksLeft--;}
+  updatePositions();
   if(ticksLeft>0)animation=requestAnimationFrame(animate);else {animation=0;if(needsFit){needsFit=false;fitMap();}}
 }
 let needsFit=true;
@@ -162,13 +162,13 @@ svg.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;
   const target=e.target.closest('.graph-node'),id=target?.dataset.id;
   gesture={pointerId:e.pointerId,id,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,moved:false};
-  svg.setPointerCapture(e.pointerId);if(id)positions.get(id).fixed=true;else svg.classList.add('panning');
+  svg.setPointerCapture(e.pointerId);if(!id)svg.classList.add('panning');
 });
 svg.addEventListener('pointermove',e=>{
   if(!gesture||gesture.pointerId!==e.pointerId)return;
   const dx=e.clientX-gesture.lastX,dy=e.clientY-gesture.lastY;
   if(Math.hypot(e.clientX-gesture.x,e.clientY-gesture.y)>4)gesture.moved=true;
-  if(gesture.id){const p=positions.get(gesture.id);p.x+=dx/camera.k;p.y+=dy/camera.k;updatePositions();}
+  if(gesture.id){const p=positions.get(gesture.id);if(gesture.moved)p.fixed=true;p.x+=dx/camera.k;p.y+=dy/camera.k;updatePositions();}
   else{camera.x+=dx;camera.y+=dy;updateCamera();}
   gesture.lastX=e.clientX;gesture.lastY=e.clientY;
 });
@@ -271,9 +271,12 @@ $('dataMenu').onclick=()=>openDialog('Your map',`<p class="dialog-copy">Your peo
 $('helpButton').onclick=()=>openDialog('A little perspective.',`<p class="dialog-copy">A person is a dot. A connection is a line. Its color tells you what connects two people.</p><p class="dialog-copy">Add your people, connect them, then choose which relation types to explore. Click a person to edit them or their connections. You can drag people around, pan the canvas, and zoom.</p><p class="dialog-copy"><strong>Backbone view</strong> selects fewer connections to help groups stand out. It keeps enough bridges to preserve connected groups, so the actual number retained may be above the slider target. Every person and connection stays saved.</p><div class="help-note">Your map stays on this device. There is no Facebook login, crawler, tracking, or data upload. Export a JSON file for a backup. Circles JSON and old Lost Circles JSON exports can be imported.</div><div class="dialog-actions"><button id="helpDone" class="button primary">Got it</button></div>`,()=>{$('helpDone').onclick=()=>dialog.close();});
 $('addPerson').onclick=()=>personDialog();$('emptyAdd').onclick=()=>personDialog();$('addConnection').onclick=()=>connectionDialog(selected||'');$('addType').onclick=typeDialog;$('startBlank').onclick=startBlank;
 $('allTypes').onclick=()=>{enabled=new Set(graph.types.map(t=>t.id));render(true);};
-$('backboneToggle').onchange=()=>rebuildGraph();$('keepRange').oninput=()=>rebuildGraph();
+function resetLayout(){positions.clear();needsFit=true;rebuildGraph();}
+$('backboneToggle').onchange=resetLayout;$('keepRange').oninput=resetLayout;
 $('spacingRange').oninput=e=>{
-  spacing=normalizeSpacing(e.target.value);$('spacingValue').textContent=`${spacing}%`;
+  const next=normalizeSpacing(e.target.value);
+  if($('backboneToggle').checked)scaleLayout(layoutNodes,{centerX:width/2,centerY:height/2},next/spacing);
+  spacing=next;$('spacingValue').textContent=`${spacing}%`;
   try { localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify({spacing})); } catch { /* The map still works without saving view preferences. */ }
   needsFit=false;restart();
 };

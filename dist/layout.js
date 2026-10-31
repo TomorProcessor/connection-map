@@ -1,6 +1,7 @@
 export const DEFAULT_SPACING = 100;
 export const MIN_SPACING = 100;
 export const MAX_SPACING = 400;
+export const layoutIterations = backbone => backbone ? 2400 : 180;
 
 export function normalizeSpacing(value) {
   const number = Number(value);
@@ -8,8 +9,43 @@ export function normalizeSpacing(value) {
     ? Math.min(MAX_SPACING, Math.max(MIN_SPACING, number)) : DEFAULT_SPACING;
 }
 
+export function scaleLayout(nodes, { centerX, centerY }, ratio) {
+  for (const p of nodes) {
+    p.x = centerX + (p.x - centerX) * ratio;
+    p.y = centerY + (p.y - centerY) * ratio;
+    p.vx *= ratio; p.vy *= ratio;
+  }
+}
+
+// Preserve the pre-spacing backbone force balance. Spacing changes its coordinate
+// scale, rather than weakening links into hubs or imposing uniform node separation.
+function stepBackbone(nodes, links, { centerX, centerY, heat, spacing }) {
+  const factor = normalizeSpacing(spacing) / 100;
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const a = nodes[i], b = nodes[j];
+    let dx = (b.x - a.x) / factor, dy = (b.y - a.y) / factor;
+    if (Math.abs(dx) + Math.abs(dy) < .01) { dx = .1; dy = .1; }
+    const d2 = Math.max(600, dx * dx + dy * dy), force = 2200 * heat / d2 * factor, distance = Math.sqrt(d2);
+    a.vx -= dx / distance * force; b.vx += dx / distance * force;
+    a.vy -= dy / distance * force; b.vy += dy / distance * force;
+  }
+  for (const { source: a, target: b } of links) {
+    const dx = b.x - a.x, dy = b.y - a.y, distance = Math.hypot(dx, dy) || 1;
+    const force = (distance - 105 * factor) * .012 * heat;
+    a.vx += dx / distance * force; b.vx -= dx / distance * force;
+    a.vy += dy / distance * force; b.vy -= dy / distance * force;
+  }
+  for (const p of nodes) {
+    if (p.fixed) { p.vx = 0; p.vy = 0; continue; }
+    p.vx += (centerX - p.x) * .0009 * heat;
+    p.vy += (centerY - p.y) * .0009 * heat;
+    p.vx *= .8; p.vy *= .8; p.x += p.vx; p.y += p.vy;
+  }
+}
+
 // Only positions and velocities change. Links are position references, never graph data.
-export function stepLayout(nodes, links, { centerX, centerY, heat = 1, spacing = DEFAULT_SPACING }) {
+export function stepLayout(nodes, links, { centerX, centerY, heat = 1, spacing = DEFAULT_SPACING, backbone = false }) {
+  if (backbone) { stepBackbone(nodes, links, { centerX, centerY, heat, spacing }); return; }
   const factor = normalizeSpacing(spacing) / 100;
   const separation = 64 * factor, repulsion = 2200 * factor * factor;
   const linkDistance = 105 * factor, spring = .012 / (factor * factor);
