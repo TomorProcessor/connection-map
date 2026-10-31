@@ -178,14 +178,13 @@ Importing offers **Add to my map** next to **Replace map**. Replace makes the fi
 your whole map, which is right for restoring a backup. Adding never removes or
 renames anything:
 
-- A person in the file is someone already on the map when they have the same ID
-  and the same name, or else when exactly one person on the map has the same name.
-  Names match regardless of case, accents, and repeated spaces; name order counts,
-  so "Anna Kovács" and "Kovács Anna" are different people.
-- Everyone else is added. IDs in a hand-written file only link its own connections,
-  so short IDs such as `anna` are fine.
-- If a name could mean more than one person, nothing is added and the dialog names
-  it. Make the names unique on the map or in the file, then import again.
+- People match **only by ID**. The same ID always identifies the existing person,
+  even when the incoming name has a different order, spelling, or accents. The
+  existing display name is kept.
+- Different IDs create separate people, even if their names are identical. Before
+  importing, give known people the IDs used in your existing map; update their
+  connection `source` and `target` references as well. Keep a distinct ID for each
+  different person across your files.
 - Relation types match by ID, then by name; new ones are added with their color.
 - Connections gain the file's relation types. A missing picture is filled in from
   the file, while an existing one is kept.

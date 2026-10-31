@@ -67,48 +67,18 @@ export function normalizeGraph(input) {
 }
 
 const nameKey = name => name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ');
-function groupByName(people) {
-  const groups = new Map();
-  for (const person of people) {
-    const key = nameKey(person.name);
-    groups.set(key, [...(groups.get(key) || []), person]);
-  }
-  return groups;
-}
-function quoteNames(names) {
-  const shown = names.slice(0, 3).map(name => `“${name}”`).join(', ');
-  return names.length > 3 ? `${shown} and ${names.length - 3} more` : shown;
-}
-
-function mergePeople(people, incoming, newId) {
-  const byId = new Map(people.map(p => [p.id, p])), ids = new Map(), claimed = new Set();
-  // A Circles ID only counts when the name agrees: hand-written files reuse short IDs like "anna" for different people.
-  for (const person of incoming) {
-    const known = byId.get(person.id);
-    if (known && nameKey(known.name) === nameKey(person.name)) { ids.set(person.id, known.id); claimed.add(known.id); }
-  }
-  const namesakes = groupByName(people.filter(p => !claimed.has(p.id)));
-  const ambiguous = [];
-  for (const [key, group] of groupByName(incoming.filter(p => !ids.has(p.id)))) {
-    const candidates = namesakes.get(key) || [];
-    if (candidates.length === 1 && group.length === 1) ids.set(group[0].id, candidates[0].id);
-    else if (candidates.length) ambiguous.push(group[0].name);
-  }
-  if (ambiguous.length) {
-    throw new Error(`${ambiguous.length === 1 ? 'This name matches' : 'These names match'} more than one person: ${quoteNames(ambiguous)}. Make the names unique on your map or in the file (a middle initial works), then try again.`);
-  }
-  const taken = new Set(byId.keys());
+function mergePeople(people, incoming) {
+  const byId = new Map(people.map(p => [p.id, p])), ids = new Map();
   let added = 0;
   for (const person of incoming) {
-    const known = byId.get(ids.get(person.id));
+    // IDs are authoritative across imports; names are display labels, not identities.
+    ids.set(person.id, person.id);
+    const known = byId.get(person.id);
     if (known) {
       if (!known.photo && person.photo) known.photo = person.photo;
       continue;
     }
-    const id = taken.has(person.id) ? newId() : person.id;
-    taken.add(id);
-    ids.set(person.id, id);
-    people.push({ ...person, id });
+    people.push({ ...person });
     added++;
   }
   return { ids, added, matched: incoming.length - added };
@@ -128,9 +98,9 @@ function mergeTypes(types, incoming) {
 }
 
 // Adds a normalized graph to the current one without removing or renaming anything already there.
-export function mergeGraphs(current, incoming, newId = () => crypto.randomUUID()) {
+export function mergeGraphs(current, incoming) {
   const merged = structuredClone(current);
-  const people = mergePeople(merged.people, incoming.people, newId);
+  const people = mergePeople(merged.people, incoming.people);
   const types = mergeTypes(merged.types, incoming.types);
   const pairs = new Map(merged.connections.map(e => [pairKey(e.source, e.target), e]));
   let addedConnections = 0, extendedConnections = 0;
