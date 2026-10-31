@@ -1,17 +1,25 @@
 import { DEFAULT_TYPES, LIMITS, pairKey, emptyGraph, normalizeGraph, mergeGraphs, demoGraph, filteredConnections, embeddedness, extractBackbone } from './graph.js';
 import { preparePhoto } from './photos.js';
+import { DEFAULT_SPACING, normalizeSpacing, stepLayout } from './layout.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STORAGE_KEY = 'circles.personal-map.v1';
+const VIEW_STORAGE_KEY = 'circles.view.v1';
+let spacing = DEFAULT_SPACING;
+try { spacing = normalizeSpacing(JSON.parse(localStorage.getItem(VIEW_STORAGE_KEY))?.spacing); } catch { /* Use the default view. */ }
 let graph, storageWarning = false;
 try { const saved = localStorage.getItem(STORAGE_KEY); graph = saved ? normalizeGraph(JSON.parse(saved)) : demoGraph(); }
 catch { graph = demoGraph(); storageWarning = true; }
 let enabled = new Set(graph.types.map(t => t.id)), selected = null, previous = null;
 let visible = [], allFiltered = [], scores = [], positions = new Map(), nodeEls = new Map(), edgeEls = [];
+let layoutNodes = [], layoutLinks = [];
 let width = 1000, height = 700, camera = { x: 0, y: 0, k: 1 }, ticksLeft = 0, animation = 0, toastTimer;
+const MIN_ZOOM = .02;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const dialog = $('dialog'), viewport = $('viewport'), svg = $('graph'), stage = $('graphStage');
+$('spacingRange').value = spacing;
+$('spacingValue').textContent = `${spacing}%`;
 
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(graph)); $('saveStatus').textContent = 'Saved in this browser'; $('saveStatus').classList.remove('unsaved'); storageWarning = false; }
@@ -89,6 +97,8 @@ function rebuildGraph(recompute = false) {
       positions.set(p.id, { x: width/2 + Math.cos(theta)*radius, y: height/2 + Math.sin(theta)*radius, vx:0,vy:0,fixed:false });
     }
   });
+  layoutNodes = [...positions.values()];
+  layoutLinks = visible.map(e => ({ source: positions.get(e.source), target: positions.get(e.target) }));
   $('edgeLayer').replaceChildren(); $('nodeLayer').replaceChildren(); nodeEls.clear(); edgeEls=[];
   for (const edge of visible) {
     edge.types.forEach((typeId,i) => {
@@ -126,16 +136,8 @@ function updatePositions() {
   }
 }
 function tick() {
-  const nodes=[...positions.values()];
   const heat=Math.max(.12, Math.min(1,ticksLeft/100));
-  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
-    const a=nodes[i],b=nodes[j];let dx=b.x-a.x,dy=b.y-a.y;
-    if(Math.abs(dx)+Math.abs(dy)<.01){dx=.1;dy=.1;}
-    const d2=Math.max(600,dx*dx+dy*dy),f=2200*heat/d2,dist=Math.sqrt(d2);
-    a.vx-=dx/dist*f;b.vx+=dx/dist*f;a.vy-=dy/dist*f;b.vy+=dy/dist*f;
-  }
-  for(const edge of visible){const a=positions.get(edge.source),b=positions.get(edge.target),dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-105)*.012*heat;a.vx+=dx/d*f;b.vx-=dx/d*f;a.vy+=dy/d*f;b.vy-=dy/d*f;}
-  for(const p of nodes){if(p.fixed){p.vx=0;p.vy=0;continue;}p.vx+=(width/2-p.x)*.0009*heat;p.vy+=(height/2-p.y)*.0009*heat;p.vx*=.8;p.vy*=.8;p.x+=p.vx;p.y+=p.vy;}
+  stepLayout(layoutNodes, layoutLinks, { centerX: width/2, centerY: height/2, heat, spacing });
   updatePositions();
 }
 function restart() { ticksLeft=180;if(!animation) animation=requestAnimationFrame(animate); }
@@ -149,10 +151,10 @@ function updateCamera() { viewport.setAttribute('transform',`translate(${camera.
 function fitMap() {
   if(!positions.size){camera={x:0,y:0,k:1};updateCamera();return;}
   const ps=[...positions.values()],minX=Math.min(...ps.map(p=>p.x))-65,maxX=Math.max(...ps.map(p=>p.x))+65,minY=Math.min(...ps.map(p=>p.y))-55,maxY=Math.max(...ps.map(p=>p.y))+65;
-  camera.k=Math.max(.12,Math.min(1.45,(width-55)/(maxX-minX),(height-80)/(maxY-minY)));
+  camera.k=Math.max(MIN_ZOOM,Math.min(1.45,(width-55)/(maxX-minX),(height-80)/(maxY-minY)));
   camera.x=width/2-(minX+maxX)/2*camera.k;camera.y=height/2-(minY+maxY)/2*camera.k;updateCamera();
 }
-function zoom(factor,x=width/2,y=height/2){const k=Math.max(.1,Math.min(4,camera.k*factor)),r=k/camera.k;camera.x=x-(x-camera.x)*r;camera.y=y-(y-camera.y)*r;camera.k=k;updateCamera();}
+function zoom(factor,x=width/2,y=height/2){const k=Math.max(MIN_ZOOM,Math.min(4,camera.k*factor)),r=k/camera.k;camera.x=x-(x-camera.x)*r;camera.y=y-(y-camera.y)*r;camera.k=k;updateCamera();}
 $('fitMap').addEventListener('click',fitMap);$('zoomIn').addEventListener('click',()=>zoom(1.25));$('zoomOut').addEventListener('click',()=>zoom(.8));
 svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect();zoom(Math.exp(-e.deltaY*.0012),e.clientX-r.left,e.clientY-r.top);},{passive:false});
 let gesture=null;
@@ -270,5 +272,10 @@ $('helpButton').onclick=()=>openDialog('A little perspective.',`<p class="dialog
 $('addPerson').onclick=()=>personDialog();$('emptyAdd').onclick=()=>personDialog();$('addConnection').onclick=()=>connectionDialog(selected||'');$('addType').onclick=typeDialog;$('startBlank').onclick=startBlank;
 $('allTypes').onclick=()=>{enabled=new Set(graph.types.map(t=>t.id));render(true);};
 $('backboneToggle').onchange=()=>rebuildGraph();$('keepRange').oninput=()=>rebuildGraph();
+$('spacingRange').oninput=e=>{
+  spacing=normalizeSpacing(e.target.value);$('spacingValue').textContent=`${spacing}%`;
+  try { localStorage.setItem(VIEW_STORAGE_KEY,JSON.stringify({spacing})); } catch { /* The map still works without saving view preferences. */ }
+  needsFit=false;restart();
+};
 render(true);
 if(storageWarning){$('saveStatus').textContent='Saved map unavailable — showing example';$('saveStatus').classList.add('unsaved');notify('Could not load your saved map. Your saved data has not been overwritten.');}

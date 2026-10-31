@@ -33,6 +33,7 @@
         <label class="toggle-row" for="backboneToggle"><span>Backbone view</span><span class="switch"><input type="checkbox" id="backboneToggle"><span class="switch-track"></span></span></label>
         <p class="small-copy">Fewer lines. Clearer circles.<br>Your connections stay saved.</p>
         <div id="backboneControls" class="backbone-controls" hidden><label for="keepRange">Connections to keep <output id="keepValue">40%</output></label><input id="keepRange" type="range" min="5" max="100" step="5" value="40"><p class="range-note">Bridges stay to keep your groups connected.</p></div>
+        <div class="spacing-controls"><label for="spacingRange">People spacing <output id="spacingValue" for="spacingRange">100%</output></label><input id="spacingRange" type="range" min="100" max="400" step="25" value="100" aria-describedby="spacingNote"><p id="spacingNote" class="range-note">Spread people out. Keep the connections.<br>Zoom out or fit the map to see more.</p></div>
       </section>
       <div class="sidebar-footer"><span class="privacy-dot"></span><p>Your map stays in this browser.<br>Export a copy to keep it safe.</p><button id="dataMenu" class="text-button">Map options <span aria-hidden="true">↗</span></button></div>
     </aside>

@@ -99,6 +99,8 @@ the app uses JavaScript modules.
 - Built-in Real life, Facebook, Instagram, and LinkedIn types; add custom types.
 - Filter by type; search for a person; select, drag, pan, zoom, and fit the map.
 - Local backbone extraction with a retention slider.
+- A separate people-spacing slider (100–400%) to spread the layout while keeping
+  the visible connections. Node collision handling helps keep faces apart.
 - Automatic browser storage, JSON export/import, and undo for the last data change.
 - Add a JSON file to the current map instead of replacing it, to build a map from
   several sources step by step.
@@ -110,6 +112,12 @@ are used. Storage is per browser and origin: different browsers, ports, and
 hostnames have separate maps. Keep using `http://127.0.0.1:4173` for this project.
 Export/import to transfer a map. Clearing browser data removes saved
 maps. If browser storage fails, the app warns and leaves the current map in memory.
+
+Increase **People spacing** under **Untangle the view** to loosen a crowded map.
+It works with backbone view off and does not change people, connections, filters,
+or JSON exports. Your zoom stays fixed while the layout expands; use zoom out or
+**Fit map to view** when you want to see the whole map. The spacing preference is
+saved in this browser separately from your graph.
 
 The first version supports 500 people, 5,000 connections, and 24 relation types.
 JSON imports are validated before they replace or are added to the current map. Parallel entries for
@@ -201,7 +209,8 @@ npm run check
 ```
 
 The tests verify quadrangle counts, normalized scores, connectivity preservation,
-essential bridges, filters, legacy import, duplicate merging, and invalid data.
+essential bridges, filters, legacy import, ID-based merging, picture validation,
+spacing behavior, and collision handling around dense hubs.
 
 ## Project files
 
@@ -209,6 +218,7 @@ essential bridges, filters, legacy import, duplicate merging, and invalid data.
 - `dist/app.js`: graph editor, local persistence, import/export, and SVG rendering.
 - `dist/graph.js`: model validation, demo data, filters, and backbone computation.
 - `dist/photos.js`: picture validation, center cropping, and browser compression.
+- `dist/layout.js`: force layout, adjustable spacing, and node collision handling.
 
 ## GitHub workflow
 
